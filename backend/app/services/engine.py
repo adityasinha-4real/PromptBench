@@ -396,7 +396,11 @@ class BenchmarkEngine:
                     config.max_retries + 1,
                     delay,
                 )
-                await asyncio.sleep(delay)
+                # Wait out the backoff, but wake immediately if the run is
+                # cancelled — a plain sleep would keep a cancelled task alive
+                # for the whole delay before the check at the top of the loop.
+                with contextlib.suppress(TimeoutError):
+                    await asyncio.wait_for(state.cancel_event.wait(), timeout=delay)
                 continue
             except Exception as exc:  # adapter bug - surface it, do not crash the run
                 logger.exception("Adapter %s raised unexpectedly", spec.provider_id)

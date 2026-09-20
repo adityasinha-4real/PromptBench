@@ -293,6 +293,36 @@ async def test_cancelling_a_run_aborts_in_flight_requests(session) -> None:
     assert all(r.status == ResultStatus.CANCELLED for r in results)
 
 
+async def test_cancelling_a_run_interrupts_the_retry_backoff(session, monkeypatch) -> None:
+    """Cancellation must not have to wait out an exponential-backoff sleep.
+
+    The provider fails with a retryable error, so the task is parked in the
+    backoff delay when the cancel arrives. A plain ``asyncio.sleep`` would keep
+    it alive for the full delay before the check at the top of the retry loop.
+    """
+    monkeypatch.setattr(settings, "retry_base_delay_seconds", 10.0)
+    provider = FakeProvider(
+        "flaky",
+        fail_with=ProviderError("busy.", code=ErrorCode.RATE_LIMIT, provider="flaky"),
+    )
+    engine, tracker = engine_for(provider)
+    benchmark = await make_benchmark(session, ["flaky"])
+
+    snapshot = await engine.launch(session, benchmark.id)
+    run_id = snapshot["run_id"]
+
+    await asyncio.sleep(0.05)
+    assert tracker.cancel(run_id) is True
+
+    started = time.perf_counter()
+    await asyncio.wait_for(engine.drain(), timeout=5)
+    elapsed = time.perf_counter() - started
+    assert elapsed < 2.0, f"cancellation waited out the backoff ({elapsed:.2f}s)"
+
+    results = await load_results(session, run_id)
+    assert results[0].status == ResultStatus.CANCELLED
+
+
 async def test_cancelling_an_unknown_run_is_a_no_op() -> None:
     tracker = RunTracker()
     assert tracker.cancel(999) is False

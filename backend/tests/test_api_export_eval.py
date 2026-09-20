@@ -58,6 +58,56 @@ async def test_export_csv_is_parseable(client: AsyncClient) -> None:
     assert rows[0]["response"]
 
 
+async def test_export_csv_neutralises_spreadsheet_formulas(client: AsyncClient) -> None:
+    """A benchmark name is user input and lands in a CSV cell.
+
+    Without an escape, ``=cmd|'/c calc'!A1`` is a live DDE formula the moment the
+    export is opened in Excel.
+    """
+    benchmark_id, _ = await seeded(client, name="=cmd|'/c calc'!A1")
+    response = await client.get(f"/api/export/{benchmark_id}?format=csv")
+
+    rows = list(csv.DictReader(io.StringIO(response.text)))
+    assert rows, "export produced no rows"
+    for row in rows:
+        assert row["benchmark_name"] == "'=cmd|'/c calc'!A1"
+        for value in row.values():
+            assert not value.startswith(("=", "+", "@", "\t", "\r")), value
+
+
+async def test_export_csv_leaves_ordinary_values_untouched(client: AsyncClient) -> None:
+    """The escape must not corrupt normal text or negative numbers."""
+    benchmark_id, _ = await seeded(client)
+    response = await client.get(f"/api/export/{benchmark_id}?format=csv")
+
+    rows = list(csv.DictReader(io.StringIO(response.text)))
+    assert rows[0]["benchmark_name"] == "TCP handshake"
+    assert not rows[0]["response"].startswith("'")
+
+
+async def test_export_markdown_escapes_pipes_in_a_variant_name(client: AsyncClient) -> None:
+    """A pipe in a variant name would otherwise invent a column and skew the table."""
+    benchmark_id, _ = await seeded(
+        client,
+        variants=[{"name": "a|b", "prompt": "Explain TCP."}],
+    )
+    response = await client.get(f"/api/export/{benchmark_id}?format=markdown")
+
+    body = response.text
+    header = next(line for line in body.splitlines() if line.startswith("| Variant |"))
+    expected_columns = header.count("|")
+    data_rows = [
+        line
+        for line in body.splitlines()
+        if line.startswith("| ") and not line.startswith(("| Variant |", "| --- |"))
+    ]
+    assert data_rows, "no summary rows rendered"
+    for line in data_rows:
+        assert "a\\|b" in line or "a|b" not in line
+        # An unescaped pipe would raise the count above the header's.
+        assert line.count("|") - line.count("\\|") == expected_columns
+
+
 async def test_export_markdown_has_a_summary_table_and_responses(client: AsyncClient) -> None:
     benchmark_id, _ = await seeded(client)
     text = (await client.get(f"/api/export/{benchmark_id}?format=markdown")).text

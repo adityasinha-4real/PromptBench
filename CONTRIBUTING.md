@@ -41,6 +41,7 @@ cd backend
 pytest -q
 ruff check .
 ruff format --check .
+mypy app
 
 # Frontend
 cd frontend
@@ -53,12 +54,16 @@ npm run build
 Do not open a pull request with any of these failing. If a test is wrong, fix
 the test and say why in the commit message.
 
-> `mypy` is configured in `pyproject.toml` and is the intended type checker for
-> the backend. It could not be executed in the environment this project was
-> built in (a Windows Application Control policy blocks it from loading a DLL),
-> so the backend's type annotations are currently enforced by review and by
-> Ruff rather than by a checker run. If it runs on your machine, please run
-> `mypy app` and fix what it finds.
+> `mypy` is configured in `pyproject.toml` under `[tool.mypy]` with
+> `disallow_untyped_defs = true`, and currently reports no issues across the 50
+> backend source files. Tests are excluded.
+>
+> If `mypy` fails on Windows with `ImportError: DLL load failed while importing
+> base64: An Application Control policy has blocked this file`, that is a
+> machine policy, not a code problem — it blocks the interpreter mypy spawns,
+> not the checker's findings. Run it from a virtualenv outside a policy-managed
+> directory, or rely on CI, which runs `mypy app` on every push and pull
+> request (`.github/workflows/ci.yml`).
 
 ### House style
 

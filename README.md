@@ -34,6 +34,7 @@ It is a developer and research tool, not a chatbot.
 - [Evaluation methodology](#evaluation-methodology)
 - [Pricing methodology](#pricing-methodology)
 - [Testing](#testing)
+- [Verification status](#verification-status)
 - [Project structure](#project-structure)
 - [Security](#security)
 - [Future improvements](#future-improvements)
@@ -445,11 +446,12 @@ which is what makes models with different verbosity comparable.
 ## Testing
 
 ```bash
-# Backend — 198 tests
+# Backend — 202 tests
 cd backend
 pytest -q
 pytest --cov=app --cov-report=term-missing   # with coverage
 ruff check . && ruff format --check .
+mypy app
 
 # Frontend — 70 tests
 cd frontend
@@ -469,6 +471,35 @@ Frontend coverage includes formatters, the API client's error handling, the
 model picker, comparison table, response cards, progress panel, variant matrix
 and the history, results and models pages including their loading, empty and
 error states.
+
+Every check above also runs in CI on each push and pull request
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)), which additionally
+builds both Docker images.
+
+---
+
+## Verification status
+
+Being precise about this matters more than looking finished, so each claim below
+says how it was actually checked.
+
+| Area | Status | How it was verified |
+|---|---|---|
+| Backend API, engine, evaluation, analytics, export | **Verified** | 202 automated tests, plus end-to-end runs against a local HTTP server |
+| Frontend pages, components, formatting | **Verified** | 70 automated tests; pages also opened in a browser |
+| Concurrency, retries, failure isolation, cancellation | **Verified** | Exercised end-to-end, including timing assertions |
+| Cost and token arithmetic | **Verified** | Unit tests including sub-cent and sub-millisecond cases |
+| Docker build and startup | **Verified** | `docker compose up --build` reached healthy and ran a benchmark with no API keys set |
+| Provider adapters (OpenAI, Anthropic, Gemini, Ollama) | **Tested against compatible local HTTP endpoints** | Request construction, response parsing, token extraction, error classification and retry behaviour are exercised over real HTTP against servers speaking each vendor's wire protocol — **not** against the vendors themselves |
+| Live OpenAI / Anthropic / Gemini calls | **Not verified — credentials unavailable** | No API keys were present in the development environment |
+| Live Ollama calls | **Not verified — Ollama unavailable** | No Ollama daemon was installed or reachable on `:11434` |
+
+What this means in practice: the adapters are exercised against the documented
+shape of each API, so a protocol-level mistake would be caught, but a
+discrepancy between a vendor's documentation and its live behaviour would not
+be. If you run PromptBench against a real provider and something does not
+normalise correctly, that is the most likely place for it, and a bug report with
+the raw response is the fastest way to get it fixed.
 
 ---
 

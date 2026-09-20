@@ -27,6 +27,40 @@ EXTENSIONS = {"json": "json", "csv": "csv", "markdown": "md", "html": "html"}
 
 _UNSAFE_FILENAME = re.compile(r"[^A-Za-z0-9._-]+")
 
+#: Leading characters that make a spreadsheet treat a cell as a formula rather
+#: than text. Prompts, variant names and model responses all reach CSV cells, so
+#: any of them could otherwise smuggle in a live formula (``=cmd|'/c calc'!A1``)
+#: that executes when the export is opened in Excel.
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_safe(value: Any) -> Any:
+    """Neutralise spreadsheet formula injection in a CSV cell.
+
+    Only strings are touched: numbers are written by ``csv`` from real numeric
+    types, so a negative cost never picks up the escape. Prefixing with an
+    apostrophe is the standard mitigation — Excel and LibreOffice strip it and
+    render the original text.
+    """
+    if isinstance(value, str) and value.startswith(_CSV_FORMULA_PREFIXES):
+        return "'" + value
+    return value
+
+
+def _md_cell(value: Any) -> str:
+    """Render a value safe to drop into a Markdown table cell.
+
+    A newline would end the row and an unescaped pipe would invent a column, so
+    a variant name like ``a|b`` silently corrupts the whole table.
+    """
+    text = str(value).replace("\\", "\\\\").replace("|", "\\|")
+    return " ".join(text.split())
+
+
+def _md_line(value: Any) -> str:
+    """Collapse a value to a single line for use in a Markdown heading."""
+    return " ".join(str(value).split())
+
 
 def safe_filename(name: str, benchmark_id: int, fmt: str) -> str:
     """Build a download filename that cannot escape a directory or inject headers."""
@@ -129,7 +163,7 @@ def export_csv(benchmark: Benchmark, run: BenchmarkRun) -> str:
     buffer = io.StringIO()
     writer = csv.DictWriter(buffer, fieldnames=list(rows[0]), lineterminator="\n")
     writer.writeheader()
-    writer.writerows(rows)
+    writer.writerows({key: _csv_safe(value) for key, value in row.items()} for row in rows)
     return buffer.getvalue()
 
 
@@ -175,7 +209,8 @@ def export_markdown(benchmark: Benchmark, run: BenchmarkRun) -> str:
         tps = f"{row['tokens_per_second']:.1f}" if row["tokens_per_second"] else "—"
         quality = f"{row['overall']:.1f}" if row["overall"] is not None else "—"
         lines.append(
-            f"| {row['variant']} | {row['provider']} | {row['model']} | {row['status']} | "
+            f"| {_md_cell(row['variant'])} | {_md_cell(row['provider'])} "
+            f"| {_md_cell(row['model'])} | {_md_cell(row['status'])} | "
             f"{latency} | {tokens} | {tps} | {_cost_display(row['estimated_cost_usd'])} | {quality} |"
         )
 
@@ -183,7 +218,11 @@ def export_markdown(benchmark: Benchmark, run: BenchmarkRun) -> str:
     lines += ["## Responses", ""]
 
     for row in rows:
-        lines += [f"### {row['provider']} / {row['model']} — {row['variant']}", ""]
+        lines += [
+            f"### {_md_line(row['provider'])} / {_md_line(row['model'])}"
+            f" — {_md_line(row['variant'])}",
+            "",
+        ]
         if row["status"] != ResultStatus.SUCCESS:
             lines += [f"**Failed ({row['error_code']}):** {row['error_message']}", ""]
             continue
