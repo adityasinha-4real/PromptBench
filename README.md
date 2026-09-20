@@ -67,7 +67,7 @@ Three principles shape the whole product:
 |---|---|
 | **Dashboard** <br> <img src="docs/screenshots/dashboard.png" width="420"> | **New benchmark** <br> <img src="docs/screenshots/new.png" width="420"> |
 | **History** <br> <img src="docs/screenshots/history.png" width="420"> | **Analytics** <br> <img src="docs/screenshots/analytics.png" width="420"> |
-| **Models** <br> <img src="docs/screenshots/models.png" width="420"> | **Results** <br> <img src="docs/screenshots/results.png" width="420"> |
+| **Models** <br> <img src="docs/screenshots/models.png" width="420"> | **Prompt variants — model × variant matrix** <br> <img src="docs/screenshots/variants.png" width="420"> |
 
 > These are real screenshots of the running application. The provider endpoints
 > behind them were served by a local stand-in during capture, so the model
