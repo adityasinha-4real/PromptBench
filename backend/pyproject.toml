@@ -57,6 +57,11 @@ check_untyped_defs = true
 exclude = ["^tests/"]
 
 [tool.pytest.ini_options]
+# Put the backend root on sys.path so `import app` and `from tests.conftest
+# import ...` resolve under a bare `pytest` invocation. Without this only
+# `python -m pytest` works, because that form alone prepends the working
+# directory — a bare `pytest` fails to import conftest and exits 4.
+pythonpath = ["."]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
