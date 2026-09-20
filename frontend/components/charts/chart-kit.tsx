@@ -128,12 +128,14 @@ export function CategoryBars({
   height = 240,
   horizontal = false,
   colorByIndex = false,
+  domain,
 }: {
   data: CategoryDatum[];
   format: (value: number | null) => string;
   height?: number;
   horizontal?: boolean;
   colorByIndex?: boolean;
+  domain?: [number, number];
 }) {
   const rows = data.filter((row): row is { label: string; value: number } => row.value !== null);
   if (rows.length === 0) return <EmptyChart message="No data for this metric yet." />;
@@ -149,13 +151,23 @@ export function CategoryBars({
         <CartesianGrid {...gridProps} vertical={horizontal} horizontal={!horizontal} />
         {horizontal ? (
           <>
-            <XAxis type="number" {...axisProps} tickFormatter={(v) => format(Number(v))} />
+            <XAxis
+              type="number"
+              domain={domain}
+              {...axisProps}
+              tickFormatter={(v) => format(Number(v))}
+            />
             <YAxis type="category" dataKey="label" width={130} {...axisProps} />
           </>
         ) : (
           <>
             <XAxis dataKey="label" {...axisProps} interval={0} angle={0} height={34} />
-            <YAxis {...axisProps} tickFormatter={(v) => format(Number(v))} width={64} />
+            <YAxis
+              {...axisProps}
+              domain={domain}
+              tickFormatter={(v) => format(Number(v))}
+              width={64}
+            />
           </>
         )}
         <Tooltip

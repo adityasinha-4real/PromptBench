@@ -252,7 +252,7 @@ export default function BenchmarkResultsPage() {
       {startRun.error && <ErrorState title="Could not start the run" message={startRun.error} />}
 
       {/* ---------------- Configuration ---------------- */}
-      <section className="grid gap-4 xl:grid-cols-[2fr_1fr]">
+      <section className="grid items-start gap-4 xl:grid-cols-[2fr_1fr]">
         <Card>
           <CardHeader>
             <CardTitle>Prompt</CardTitle>

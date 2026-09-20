@@ -58,7 +58,14 @@ METHODOLOGY = (
 
 
 def _mean(values: Sequence[float]) -> float | None:
-    return round(sum(values) / len(values), 4) if values else None
+    """Arithmetic mean, or ``None`` for an empty sequence.
+
+    Rounded to 10 decimal places rather than a display precision: per-request
+    costs are routinely below 1e-4, and rounding here would collapse a paid
+    model to 0.0 and make it look free on the leaderboard. Formatting is the
+    UI's job.
+    """
+    return round(sum(values) / len(values), 10) if values else None
 
 
 def _percentile(values: Sequence[float], pct: float) -> float | None:

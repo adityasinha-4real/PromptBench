@@ -1,0 +1,65 @@
+name: promptbench
+
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: promptbench-backend
+    restart: unless-stopped
+    ports:
+      - '${BACKEND_PORT:-8000}:8000'
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DEBUG: ${DEBUG:-false}
+      DATABASE_URL: sqlite+aiosqlite:////data/promptbench.db
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+
+      # Optional. Any provider left blank simply shows as unavailable.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+
+      # Reach an Ollama daemon running on the host machine, not in this network.
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+
+      REQUEST_TIMEOUT_SECONDS: ${REQUEST_TIMEOUT_SECONDS:-120}
+      MAX_CONCURRENCY: ${MAX_CONCURRENCY:-8}
+      EVALUATION_DEFAULT_MODE: ${EVALUATION_DEFAULT_MODE:-heuristic}
+      JUDGE_PROVIDER: ${JUDGE_PROVIDER:-}
+      JUDGE_MODEL: ${JUDGE_MODEL:-}
+    volumes:
+      # Benchmark history survives `docker compose down` and image rebuilds.
+      - promptbench-data:/data
+    extra_hosts:
+      # Linux does not resolve host.docker.internal by default.
+      - 'host.docker.internal:host-gateway'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4).status == 200 else 1)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Inlined into the browser bundle at build time, so it must be the URL
+        # the *browser* uses — not the internal service name.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    container_name: promptbench-frontend
+    restart: unless-stopped
+    ports:
+      - '${FRONTEND_PORT:-3000}:3000'
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  promptbench-data:

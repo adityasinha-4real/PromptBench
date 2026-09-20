@@ -51,6 +51,9 @@ export default function AnalyticsPage() {
 
   const data = analytics.data;
   const byModel = data?.by_model ?? [];
+  // A model that never succeeded has nothing to plot; a zero-height bar would
+  // read as 'free and instant' rather than 'never ran'.
+  const plottable = byModel.filter((stat) => stat.successes > 0);
   const label = (stat: { provider: string; model: string }) => stat.model;
 
   const unpriced = data?.totals.unpriced_executions ?? 0;
@@ -198,7 +201,7 @@ export default function AnalyticsPage() {
             <div className="grid gap-4 xl:grid-cols-2">
               <ChartFrame title="Average latency by model" subtitle="Lower is better">
                 <CategoryBars
-                  data={byModel.map((stat) => ({
+                  data={plottable.map((stat) => ({
                     label: label(stat),
                     value: stat.avg_latency_ms,
                   }))}
@@ -212,7 +215,7 @@ export default function AnalyticsPage() {
                 footnote="Unpriced models are omitted, not plotted as zero."
               >
                 <CategoryBars
-                  data={byModel.map((stat) => ({ label: label(stat), value: stat.total_cost }))}
+                  data={plottable.map((stat) => ({ label: label(stat), value: stat.total_cost }))}
                   format={(value) => formatCost(value)}
                 />
               </ChartFrame>
@@ -222,14 +225,15 @@ export default function AnalyticsPage() {
                 subtitle="Overall score, higher is better"
               >
                 <CategoryBars
-                  data={byModel.map((stat) => ({ label: label(stat), value: stat.avg_quality }))}
+                  data={plottable.map((stat) => ({ label: label(stat), value: stat.avg_quality }))}
                   format={(value) => formatScore(value)}
+                  domain={[0, 10]}
                 />
               </ChartFrame>
 
               <ChartFrame title="Total token usage by model">
                 <CategoryBars
-                  data={byModel.map((stat) => ({ label: label(stat), value: stat.total_tokens }))}
+                  data={plottable.map((stat) => ({ label: label(stat), value: stat.total_tokens }))}
                   format={(value) => formatTokens(value)}
                 />
               </ChartFrame>

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from httpx import AsyncClient
 
 from tests.conftest import benchmark_payload
@@ -161,3 +162,21 @@ async def test_dashboard_summary(client: AsyncClient) -> None:
     assert len(body["top_models"]) == 2
     assert body["evaluations_recorded"] == 2
     assert len(body["recent_benchmark_ids"]) == 1
+
+
+async def test_sub_cent_costs_survive_aggregation(client: AsyncClient, registry) -> None:
+    """A model costing 4.6e-05 per call must not aggregate to 0.0 and look free."""
+    registry.get("openai").input_tokens = 23
+    registry.get("openai").output_tokens = 71
+    await seed(client, models=[{"provider": "openai", "model": "gpt-4o-mini"}])
+
+    body = (await client.get("/api/analytics")).json()
+    stat = next(m for m in body["by_model"] if m["model"] == "gpt-4o-mini")
+
+    expected = 23 / 1_000_000 * 0.15 + 71 / 1_000_000 * 0.60
+    assert stat["avg_cost"] == pytest.approx(expected, rel=1e-6)
+    assert stat["avg_cost"] > 0
+    assert body["totals"]["avg_cost"] == pytest.approx(expected, rel=1e-6)
+
+    leaderboard = (await client.get("/api/leaderboard?metric=cost")).json()
+    assert leaderboard["entries"][0]["avg_cost"] == pytest.approx(expected, rel=1e-6)

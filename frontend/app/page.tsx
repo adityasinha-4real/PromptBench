@@ -81,7 +81,7 @@ export default function DashboardPage() {
         </section>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+      <div className="grid items-start gap-4 xl:grid-cols-[1.4fr_1fr]">
         <Card>
           <CardHeader>
             <div>
