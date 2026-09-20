@@ -13,17 +13,24 @@ concurrency:
 
 jobs:
   backend:
-    name: Backend (pytest, ruff, mypy)
+    name: Backend (pytest, ruff, mypy) — py${{ matrix.python-version }}
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.11 is the floor declared in pyproject.toml; 3.12 is what the
+        # published backend image actually runs. Testing only one of them
+        # leaves the other unverified.
+        python-version: ['3.11', '3.12']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: backend/requirements-dev.txt
 
@@ -54,11 +61,13 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      # Node 22 is the active LTS; 20 reached end-of-life in April 2026, so
+      # building against it would verify the app on an unsupported runtime.
+      - uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -84,7 +93,7 @@ jobs:
     name: Docker build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Validate compose file
         run: docker compose config --quiet

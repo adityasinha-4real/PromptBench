@@ -170,8 +170,10 @@ reasoning behind each decision.
 
 ## Installation
 
-**Prerequisites:** Python 3.11+, Node.js 20+. Optionally [Ollama](https://ollama.com)
-for free local models, and Docker if you prefer containers.
+**Prerequisites:** Python 3.11 or 3.12, Node.js 22+. Optionally
+[Ollama](https://ollama.com) for free local models, and Docker if you prefer
+containers. CI verifies the backend on both Python versions and the frontend on
+Node 22, which is what the published images run.
 
 ```bash
 git clone <your-fork-url> promptbench
@@ -473,8 +475,9 @@ and the history, results and models pages including their loading, empty and
 error states.
 
 Every check above also runs in CI on each push and pull request
-([`.github/workflows/ci.yml`](.github/workflows/ci.yml)), which additionally
-builds both Docker images.
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). CI runs the backend
+checks against Python 3.11 and 3.12, the frontend against Node 22, and
+additionally builds both Docker images.
 
 ---
 
