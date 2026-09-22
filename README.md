@@ -477,7 +477,9 @@ pages including their loading, empty and error states.
 Every check above also runs in CI on each push and pull request
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). CI runs the backend
 checks against Python 3.11 and 3.12, the frontend against Node 22, and
-additionally builds both Docker images.
+additionally builds both Docker images. Dependabot
+([`.github/dependabot.yml`](.github/dependabot.yml)) opens grouped update PRs
+for GitHub Actions, pip and npm, so each one goes through the same checks.
 
 ---
 

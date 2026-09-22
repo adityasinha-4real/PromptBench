@@ -1,0 +1,32 @@
+# Keeps dependencies current without anyone having to notice a deprecation
+# first. Updates are grouped per ecosystem so a routine week is one PR each,
+# not one per package; CI verifies every PR before it can be merged.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+    groups:
+      python:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    groups:
+      npm:
+        update-types: [minor, patch]
+
+# Base images are deliberately not tracked: Dependabot would move python:3.12
+# and node:22 to newer releases that the CI matrix does not test. Bump them by
+# hand, together with ci.yml.
