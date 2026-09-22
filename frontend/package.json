@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "PromptBench — LLM prompt benchmarking UI",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
