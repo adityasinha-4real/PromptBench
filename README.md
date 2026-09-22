@@ -196,7 +196,8 @@ uvicorn app.main:app --reload --port 8000
 ```
 
 The API is at <http://localhost:8000>, interactive docs at
-<http://localhost:8000/docs>. The SQLite schema is created on first start.
+<http://localhost:8000/docs>. The database schema is migrated to the latest
+version on every start, so upgrading PromptBench keeps your benchmark history.
 
 **Frontend** (terminal 2):
 
@@ -378,6 +379,12 @@ benchmarks ──1:N──► prompt_variants
 Foreign keys cascade on delete. Runs store a parameter snapshot so history stays
 truthful even after a benchmark's metadata is edited.
 
+The schema is managed by Alembic migrations in `backend/app/db/migrations`,
+which run automatically on startup. A database created before migrations
+existed is detected and adopted in place, with its data kept. See
+[CONTRIBUTING.md](CONTRIBUTING.md#changing-the-database-schema) for how to add
+one.
+
 ---
 
 ## Evaluation methodology
@@ -448,7 +455,7 @@ which is what makes models with different verbosity comparable.
 ## Testing
 
 ```bash
-# Backend — 214 tests
+# Backend — 220 tests
 cd backend
 pytest -q
 pytest --cov=app --cov-report=term-missing   # with coverage
@@ -490,7 +497,7 @@ says how it was actually checked.
 
 | Area | Status | How it was verified |
 |---|---|---|
-| Backend API, engine, evaluation, analytics, export | **Verified** | 214 automated tests, plus end-to-end runs against a local HTTP server |
+| Backend API, engine, evaluation, analytics, export | **Verified** | 220 automated tests, plus end-to-end runs against a local HTTP server |
 | Frontend pages, components, formatting | **Verified** | 74 automated tests; pages also opened in a browser |
 | Concurrency, retries, failure isolation, cancellation | **Verified** | Exercised end-to-end, including timing assertions |
 | Cost and token arithmetic | **Verified** | Unit tests including sub-cent and sub-millisecond cases |
@@ -574,7 +581,6 @@ machine. Put it behind an authenticating proxy before exposing it to a network.
 - CSV dataset benchmarking (one prompt per row) and batch runs.
 - Regression detection between runs of the same benchmark, and a CI mode that
   fails a build when quality drops.
-- Alembic migrations (the schema is currently created from metadata at startup).
 - Authentication, for multi-user deployments.
 
 ---

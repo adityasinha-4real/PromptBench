@@ -270,6 +270,26 @@ local Ollama model, which keeps it free.
 
 ---
 
+## Changing the database schema
+
+Every change to `app/models/` needs a migration. Without one,
+`test_migrations_match_the_models` fails. From `backend/`:
+
+```bash
+alembic revision --autogenerate --rev-id 0002 -m "add run notes"
+```
+
+Then **read the generated file before committing it**. Autogenerate won't notice
+a rename (it sees a drop plus an add, which loses data), and it can't write data
+migrations. Number revisions sequentially so the order is obvious. On SQLite,
+`env.py` turns on batch mode, which rebuilds the table for column changes SQLite
+can't `ALTER` directly.
+
+Migrations run automatically when the backend starts. To run them by hand, use
+`alembic upgrade head`, which targets `DATABASE_URL`.
+
+---
+
 ## Things to be careful about
 
 **Never default a missing price to zero.** `estimate_cost` returns `None` for an

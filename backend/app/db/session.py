@@ -19,7 +19,6 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.core.config import settings
-from app.db.base import Base
 
 
 def _engine_kwargs(url: str) -> dict[str, object]:
@@ -55,17 +54,15 @@ SessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
 
 
 async def init_db(target_engine: AsyncEngine | None = None) -> None:
-    """Create tables if they do not exist.
+    """Migrate the schema to the latest Alembic revision.
 
-    A single-file local tool does not warrant a migration runner; the schema is
-    created from the declarative metadata at startup. ARCHITECTURE.md records
-    this decision and the upgrade path to Alembic.
+    A fresh database is built by the migrations; one created by a release that
+    predates them is adopted in place (see ``app.db.migrate``).
     """
-    # Import for the side effect of registering models on Base.metadata.
-    from app import models  # noqa: F401
+    from app.db.migrate import upgrade_to_head
 
     async with (target_engine or engine).begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(upgrade_to_head)
 
 
 async def dispose_db(target_engine: AsyncEngine | None = None) -> None:

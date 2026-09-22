@@ -61,6 +61,10 @@ def configure_logging() -> None:
         logger.handlers = [handler]
         logger.propagate = False
 
+    # Alembic announces each internal plugin at INFO when it is imported, i.e.
+    # on every startup. Keep its "Running upgrade ..." lines, drop that noise.
+    logging.getLogger("alembic.runtime.plugins").setLevel(logging.WARNING)
+
 
 def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)

@@ -265,13 +265,31 @@ model configuration are immutable once results exist.
 explicit variants run the base prompt once under the name `"Default"`, so the
 model × variant matrix is the single code path rather than a special case.
 
-### Why no migration tool
+### Schema migrations
 
-The schema is created from declarative metadata at startup. For a single-user
-local tool with no existing installed base, a migration runner is ceremony. The
-upgrade path is explicit: add Alembic, generate an initial revision matching the
-current metadata, and switch `init_db` to `alembic upgrade head`. This is listed
-in the README's future improvements rather than pretended away.
+The first release built its schema from declarative metadata at startup. That
+stopped being enough once people had history they cared about: the first change
+to any table would have left existing databases stale. So the schema is now
+managed by Alembic, and `init_db` runs `upgrade head` on every start.
+
+- **Migrations ship inside the package.** They live in `app/db/migrations`, so
+  the Docker image, which copies only `app/`, can't be missing them.
+- **Pre-migration databases are adopted, not recreated.** Revision `0001` is
+  exactly what `create_all` used to produce. A database that has the tables but
+  no `alembic_version` row is stamped at `0001` and then upgraded, so its data
+  stays put.
+- **Migrations run inside the startup transaction.** On PostgreSQL a failed
+  migration rolls back completely. SQLite's driver commits DDL as it goes, so
+  there it doesn't. On SQLite, copy the database file before upgrading to a
+  release that adds migrations if the history matters to you.
+- **Generated migrations don't import app code.** `env.py` renders
+  `UTCDateTime` as `sa.DateTime(timezone=True)`, so a migration keeps working
+  after the model it came from has changed.
+- **Model drift fails a test.** `test_migrations_match_the_models` compares the
+  migrated schema with the ORM, so a model change without a migration can't
+  merge.
+- **Tests still build their schema with `create_all`,** which is quicker. That's
+  safe only because of the drift test.
 
 ### SQLite now, Postgres by configuration
 
