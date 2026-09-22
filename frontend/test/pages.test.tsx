@@ -5,7 +5,7 @@
  * page components, their loading/error/empty states and their filter wiring.
  */
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api';
@@ -56,9 +56,29 @@ vi.mock('@/lib/api', async () => {
 const HistoryPage = (await import('@/app/history/page')).default;
 const BenchmarkPage = (await import('@/app/benchmarks/[id]/page')).default;
 const ModelsPage = (await import('@/app/models/page')).default;
+const NewBenchmarkPage = (await import('@/app/benchmarks/new/page')).default;
 
 function emptyPage() {
   return { items: [], total: 0, limit: 20, offset: 0 };
+}
+
+const EVALUATION_MODES = [
+  { id: 'disabled', label: 'Disabled', available: true, requires_credentials: false },
+  { id: 'heuristic', label: 'Heuristic (offline)', available: true, requires_credentials: false },
+  { id: 'llm_judge', label: 'LLM as a judge', available: true, requires_credentials: true },
+  { id: 'manual', label: 'Manual', available: true, requires_credentials: false },
+].map((mode) => ({ ...mode, description: `${mode.label} description` }));
+
+function settingsWith(evaluation: {
+  default_mode: string;
+  judge_provider?: string | null;
+  judge_model?: string | null;
+}) {
+  // Only the parts the new-benchmark form reads.
+  return {
+    evaluation: { modes: EVALUATION_MODES, judge_provider: null, judge_model: null, ...evaluation },
+    limits: {},
+  };
 }
 
 beforeEach(() => {
@@ -278,6 +298,56 @@ describe('Benchmark results page', () => {
     );
     render(<BenchmarkPage />);
     expect(await screen.findByRole('alert')).toHaveTextContent('Benchmark 1 was not found.');
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* New benchmark                                                               */
+/* -------------------------------------------------------------------------- */
+
+describe('New benchmark page', () => {
+  beforeEach(() => {
+    apiMock.evaluationModes.mockResolvedValue({ modes: EVALUATION_MODES });
+  });
+
+  it('preselects the evaluation mode configured on the server', async () => {
+    apiMock.settings.mockResolvedValue(settingsWith({ default_mode: 'manual' }));
+    render(<NewBenchmarkPage />);
+    expect(await screen.findByDisplayValue('Manual')).toBeInTheDocument();
+  });
+
+  it('prefills the configured judge when the default mode is LLM judge', async () => {
+    apiMock.settings.mockResolvedValue(
+      settingsWith({ default_mode: 'llm_judge', judge_provider: 'ollama', judge_model: 'llama3.2' })
+    );
+    render(<NewBenchmarkPage />);
+    expect(await screen.findByDisplayValue('LLM as a judge')).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('Ollama (local)')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('llama3.2')).toBeInTheDocument();
+  });
+
+  it('shows a configured judge that is currently unavailable instead of hiding it', async () => {
+    apiMock.settings.mockResolvedValue(
+      settingsWith({ default_mode: 'llm_judge', judge_provider: 'openai', judge_model: 'gpt-4o' })
+    );
+    render(<NewBenchmarkPage />);
+    expect(await screen.findByDisplayValue('openai (unavailable)')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('gpt-4o')).toBeInTheDocument();
+  });
+
+  it('does not overwrite a mode the user picked before settings arrived', async () => {
+    const user = userEvent.setup();
+    let resolveSettings!: (value: unknown) => void;
+    apiMock.settings.mockReturnValue(new Promise((resolve) => (resolveSettings = resolve)));
+    render(<NewBenchmarkPage />);
+
+    const modeSelect = await screen.findByDisplayValue('Heuristic (offline)');
+    await user.selectOptions(modeSelect, 'disabled');
+    // Flush the settings response and the effect it triggers.
+    await act(async () => resolveSettings(settingsWith({ default_mode: 'manual' })));
+
+    expect(screen.getByDisplayValue('Disabled')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Manual')).not.toBeInTheDocument();
   });
 });
 

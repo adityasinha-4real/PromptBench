@@ -430,7 +430,7 @@ export interface SettingsResponse {
   }[];
   evaluation: {
     modes: EvaluationModeInfo[];
-    default_mode: string;
+    default_mode: EvaluationMode;
     judge_provider: string | null;
     judge_model: string | null;
   };

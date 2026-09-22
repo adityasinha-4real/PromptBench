@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ModelPicker } from '@/components/benchmark/model-picker';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { Checkbox, Field, Input, Select, Slider, Textarea } from '@/components/u
 import { useToast } from '@/components/ui/toast';
 import { useAction, useAsync } from '@/hooks/use-async';
 import { api } from '@/lib/api';
+import { evaluationModeLabel } from '@/lib/format';
 import type { BenchmarkCreatePayload, EvaluationMode, ModelSelection } from '@/types';
 
 interface VariantDraft {
@@ -42,6 +43,22 @@ export default function NewBenchmarkPage() {
   const [variants, setVariants] = useState<VariantDraft[]>([]);
   const [runNow, setRunNow] = useState(true);
   const [touched, setTouched] = useState(false);
+
+  // Start from the server's EVALUATION_DEFAULT_MODE and JUDGE_PROVIDER /
+  // JUDGE_MODEL — once, and never over a choice the user has already made.
+  const defaultsApplied = useRef(false);
+  const evaluationTouched = useRef(false);
+  useEffect(() => {
+    const evaluation = settings.data?.evaluation;
+    if (!evaluation || defaultsApplied.current) return;
+    defaultsApplied.current = true;
+    if (evaluationTouched.current) return;
+    setEvaluationMode(evaluation.default_mode);
+    if (evaluation.judge_provider && evaluation.judge_model) {
+      setJudgeProvider(evaluation.judge_provider);
+      setJudgeModel(evaluation.judge_model);
+    }
+  }, [settings.data]);
 
   const limits = settings.data?.limits;
   const maxModels = limits?.max_models_per_benchmark ?? 12;
@@ -128,6 +145,12 @@ export default function NewBenchmarkPage() {
 
   const judgeProviderOptions = availableProviders;
   const judgeModelOptions = judgeProviderOptions.find((p) => p.id === judgeProvider)?.models ?? [];
+  // A configured judge may be down or not listed (e.g. an Ollama model that
+  // was never pulled). Show it rather than letting the select read "Select…".
+  const judgeProviderMissing =
+    judgeProvider !== '' && !judgeProviderOptions.some((p) => p.id === judgeProvider);
+  const judgeModelMissing =
+    judgeModel !== '' && !judgeModelOptions.some((m) => m.id === judgeModel);
 
   const totalExecutions = selected.length * Math.max(variants.length, 1);
 
@@ -382,14 +405,19 @@ export default function NewBenchmarkPage() {
               <Field label="Mode" error={touched ? errors.judge : null}>
                 <Select
                   value={evaluationMode}
-                  onChange={(event) => setEvaluationMode(event.target.value as EvaluationMode)}
+                  onChange={(event) => {
+                    evaluationTouched.current = true;
+                    setEvaluationMode(event.target.value as EvaluationMode);
+                  }}
                 >
                   {(modes.data?.modes ?? []).map((mode) => (
                     <option key={mode.id} value={mode.id}>
                       {mode.label}
                     </option>
                   ))}
-                  {!modes.data && <option value="heuristic">Heuristic (offline)</option>}
+                  {!modes.data && (
+                    <option value={evaluationMode}>{evaluationModeLabel(evaluationMode)}</option>
+                  )}
                 </Select>
               </Field>
 
@@ -404,11 +432,15 @@ export default function NewBenchmarkPage() {
                     <Select
                       value={judgeProvider}
                       onChange={(event) => {
+                        evaluationTouched.current = true;
                         setJudgeProvider(event.target.value);
                         setJudgeModel('');
                       }}
                     >
                       <option value="">Select…</option>
+                      {judgeProviderMissing && (
+                        <option value={judgeProvider}>{judgeProvider} (unavailable)</option>
+                      )}
                       {judgeProviderOptions.map((provider) => (
                         <option key={provider.id} value={provider.id}>
                           {provider.label}
@@ -419,10 +451,14 @@ export default function NewBenchmarkPage() {
                   <Field label="Judge model" required>
                     <Select
                       value={judgeModel}
-                      onChange={(event) => setJudgeModel(event.target.value)}
+                      onChange={(event) => {
+                        evaluationTouched.current = true;
+                        setJudgeModel(event.target.value);
+                      }}
                       disabled={!judgeProvider}
                     >
                       <option value="">Select…</option>
+                      {judgeModelMissing && <option value={judgeModel}>{judgeModel}</option>}
                       {judgeModelOptions.map((model) => (
                         <option key={model.id} value={model.id}>
                           {model.id}
