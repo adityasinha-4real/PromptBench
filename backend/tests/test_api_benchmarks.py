@@ -227,6 +227,30 @@ async def test_llm_judge_without_configuration_is_rejected(client: AsyncClient) 
     assert "judge" in response.text.lower()
 
 
+@pytest.mark.parametrize("mode", ["heuristic", "manual", "disabled"])
+async def test_omitted_evaluation_mode_uses_the_configured_default(
+    client: AsyncClient, monkeypatch, mode: str
+) -> None:
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "evaluation_default_mode", mode)
+    payload = benchmark_payload()
+    del payload["evaluation_mode"]
+    response = await client.post("/api/benchmarks", json=payload)
+    assert response.status_code == 201, response.text
+    assert response.json()["evaluation_mode"] == mode
+
+
+async def test_explicit_evaluation_mode_overrides_the_default(
+    client: AsyncClient, monkeypatch
+) -> None:
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "evaluation_default_mode", "manual")
+    created = await create(client, evaluation_mode="heuristic")
+    assert created["evaluation_mode"] == "heuristic"
+
+
 async def test_too_many_models_is_rejected(client: AsyncClient) -> None:
     response = await client.post(
         "/api/benchmarks",

@@ -67,7 +67,10 @@ class BenchmarkBase(BaseModel):
     max_tokens: int = Field(default=1024, ge=1)
     top_p: float | None = Field(default=None, ge=0.0, le=1.0)
     evaluation_enabled: bool = True
-    evaluation_mode: EvaluationMode = EvaluationMode.HEURISTIC
+    # Read per request, so EVALUATION_DEFAULT_MODE is honoured.
+    evaluation_mode: EvaluationMode = Field(
+        default_factory=lambda: EvaluationMode(settings.evaluation_default_mode)
+    )
     judge_provider: str | None = Field(default=None, max_length=64)
     judge_model: str | None = Field(default=None, max_length=160)
     models: list[ModelSelection] = Field(min_length=1)

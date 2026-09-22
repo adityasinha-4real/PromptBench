@@ -288,8 +288,8 @@ All configuration lives in `.env` at the repository root. Nothing is required.
 | `MAX_OUTPUT_TOKENS_LIMIT` | `8192` | Ceiling on `max_tokens`. |
 | `MAX_MODELS_PER_BENCHMARK` | `12` | Selection limit. |
 | `MAX_VARIANTS_PER_BENCHMARK` | `10` | Variant limit. |
-| `EVALUATION_DEFAULT_MODE` | `heuristic` | `disabled` / `heuristic` / `llm_judge` / `manual`. |
-| `JUDGE_PROVIDER`, `JUDGE_MODEL` | — | Default judge for LLM-as-a-judge mode. |
+| `EVALUATION_DEFAULT_MODE` | `heuristic` | `disabled` / `heuristic` / `llm_judge` / `manual`. Used when a benchmark doesn't specify a mode. Any other value stops the backend at startup. |
+| `JUDGE_PROVIDER`, `JUDGE_MODEL` | — | Default judge for LLM-as-a-judge mode. Both are required if the default mode is `llm_judge`. |
 | `PRICING_FILE` | bundled table | Path to your own pricing JSON. |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | Browser-visible API URL. **Never put a secret here.** |
 
@@ -448,7 +448,7 @@ which is what makes models with different verbosity comparable.
 ## Testing
 
 ```bash
-# Backend — 202 tests
+# Backend — 214 tests
 cd backend
 pytest -q
 pytest --cov=app --cov-report=term-missing   # with coverage
@@ -488,7 +488,7 @@ says how it was actually checked.
 
 | Area | Status | How it was verified |
 |---|---|---|
-| Backend API, engine, evaluation, analytics, export | **Verified** | 202 automated tests, plus end-to-end runs against a local HTTP server |
+| Backend API, engine, evaluation, analytics, export | **Verified** | 214 automated tests, plus end-to-end runs against a local HTTP server |
 | Frontend pages, components, formatting | **Verified** | 70 automated tests; pages also opened in a browser |
 | Concurrency, retries, failure isolation, cancellation | **Verified** | Exercised end-to-end, including timing assertions |
 | Cost and token arithmetic | **Verified** | Unit tests including sub-cent and sub-millisecond cases |

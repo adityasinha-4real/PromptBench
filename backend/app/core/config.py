@@ -8,12 +8,17 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Any, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = BACKEND_ROOT.parent
+
+# Mirrors ``app.models.benchmark.EvaluationMode``. Spelled out here because
+# importing the ORM package from config would be circular.
+EvaluationModeName = Literal["disabled", "heuristic", "llm_judge", "manual"]
 
 
 class Settings(BaseSettings):
@@ -64,7 +69,9 @@ class Settings(BaseSettings):
     max_variants_per_benchmark: int = Field(default=10, ge=1, le=64)
 
     # ---- Evaluation ----------------------------------------------------
-    evaluation_default_mode: str = Field(default="heuristic")
+    # Applied when a create request does not name a mode. A typo here fails at
+    # startup rather than silently falling back to something else.
+    evaluation_default_mode: EvaluationModeName = Field(default="heuristic")
     judge_provider: str | None = None
     judge_model: str | None = None
 
@@ -75,6 +82,32 @@ class Settings(BaseSettings):
     @classmethod
     def _normalise_env(cls, value: str) -> str:
         return value.strip().lower()
+
+    @field_validator("evaluation_default_mode", mode="before")
+    @classmethod
+    def _normalise_mode(cls, value: Any) -> Any:
+        return value.strip().lower() if isinstance(value, str) else value
+
+    @field_validator("judge_provider", "judge_model", mode="before")
+    @classmethod
+    def _blank_is_unset(cls, value: Any) -> Any:
+        # `.env.example` ships `JUDGE_PROVIDER=` — an empty value means "not
+        # configured", and must not be mistaken for a provider named "".
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def _judge_default_is_usable(self) -> Settings:
+        # Otherwise every benchmark created without an explicit mode would be
+        # rejected with a 422 that points at the request, not the config.
+        if self.evaluation_default_mode == "llm_judge" and not (
+            self.judge_provider and self.judge_model
+        ):
+            raise ValueError(
+                "EVALUATION_DEFAULT_MODE=llm_judge requires JUDGE_PROVIDER and JUDGE_MODEL"
+            )
+        return self
 
     @property
     def is_production(self) -> bool:
