@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ComparisonTable } from '@/components/benchmark/comparison-table';
 import { ManualScoreDialog } from '@/components/benchmark/manual-score-dialog';
 import { ResponseCard } from '@/components/benchmark/response-card';
+import { RunComparison } from '@/components/benchmark/run-comparison';
 import { RunProgressPanel } from '@/components/benchmark/run-progress';
 import { VariantMatrix } from '@/components/benchmark/variant-matrix';
 import { ChartFrame, CategoryBars, GroupedBars } from '@/components/charts/chart-kit';
@@ -406,10 +407,14 @@ export default function BenchmarkResultsPage() {
               { id: 'responses', label: 'Responses', count: results.length },
               { id: 'charts', label: 'Charts' },
               { id: 'evaluation', label: 'Evaluation' },
+              // Needs a second run to have anything to say.
+              ...(data.runs.length > 1 ? [{ id: 'compare', label: 'Compare runs' }] : []),
             ]}
             active={tab}
             onChange={setTab}
           />
+
+          {tab === 'compare' && <RunComparison benchmarkId={benchmarkId} runs={data.runs} />}
 
           {tab === 'responses' && (
             <div className="grid gap-4 2xl:grid-cols-2">

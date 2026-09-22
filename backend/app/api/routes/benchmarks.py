@@ -25,7 +25,8 @@ from app.schemas.benchmark import (
     RunRequest,
 )
 from app.schemas.common import Page
-from app.services import benchmark_service
+from app.schemas.comparison import RunComparison
+from app.services import benchmark_service, comparison_service
 from app.services.engine import BenchmarkEngine
 from app.services.run_tracker import RunTracker
 
@@ -193,6 +194,28 @@ async def list_runs(
     benchmark = await benchmark_service.get_benchmark(session, benchmark_id)
     runs = sorted(benchmark.runs, key=lambda r: r.id, reverse=True)
     return [benchmark_service.summarise_run(r).model_dump(mode="json") for r in runs]
+
+
+@router.get(
+    "/benchmarks/{benchmark_id}/compare",
+    response_model=RunComparison,
+    summary="Compare two runs of a benchmark",
+)
+async def compare_runs(
+    benchmark_id: int,
+    base_run_id: int | None = Query(default=None, description="Older run. Defaults to previous."),
+    target_run_id: int | None = Query(default=None, description="Newer run. Defaults to latest."),
+    session: AsyncSession = Depends(db_session),
+) -> RunComparison:
+    """Per-model movement in quality, latency, cost and tokens between two runs.
+
+    Defaults to the two most recent runs. Each metric is judged on its own —
+    there is no composite score — and a missing value is reported as unknown
+    rather than counted as zero.
+    """
+    return await comparison_service.compare_runs(
+        session, benchmark_id, base_run_id=base_run_id, target_run_id=target_run_id
+    )
 
 
 @router.get("/runs/{run_id}", response_model=BenchmarkRunOut, summary="Get a run with results")

@@ -25,6 +25,7 @@ import type {
   ModelsResponse,
   Page,
   ResultMatrix,
+  RunComparison,
   RunProgress,
   SettingsResponse,
   TestConnectionResponse,
@@ -245,6 +246,11 @@ export const api = {
   rerunBenchmark: (id: number, wait = false) =>
     request<RunProgress>(`/api/benchmarks/${id}/rerun`, { method: 'POST', query: { wait } }),
   listRuns: (benchmarkId: number) => request<RunProgress[]>(`/api/benchmarks/${benchmarkId}/runs`),
+  /** Compare two runs; omit both ids for the two most recent. */
+  compareRuns: (benchmarkId: number, baseRunId?: number, targetRunId?: number) =>
+    request<RunComparison>(`/api/benchmarks/${benchmarkId}/compare`, {
+      query: { base_run_id: baseRunId, target_run_id: targetRunId },
+    }),
   getRun: (runId: number) => request<BenchmarkRun>(`/api/runs/${runId}`),
   getRunProgress: (runId: number) => request<RunProgress>(`/api/runs/${runId}/progress`),
   getMatrix: (runId: number) => request<ResultMatrix>(`/api/runs/${runId}/matrix`),

@@ -1,9 +1,13 @@
 import type {
   BenchmarkDetail,
   BenchmarkRun,
+  ComparisonEntry,
+  MetricDelta,
   ModelResult,
   ProviderInfo,
+  RunComparison,
   RunProgress,
+  RunSummary,
 } from '@/types';
 
 export function makeResult(overrides: Partial<ModelResult> = {}): ModelResult {
@@ -173,6 +177,103 @@ export function makeProviders(): ProviderInfo[] {
       ],
     },
   ];
+}
+
+export function makeRunSummary(overrides: Partial<RunSummary> = {}): RunSummary {
+  return {
+    id: 11,
+    status: 'completed',
+    started_at: '2026-01-02T00:00:00Z',
+    completed_at: '2026-01-02T00:00:03Z',
+    result_count: 2,
+    success_count: 2,
+    failure_count: 0,
+    avg_latency_ms: 700,
+    total_cost: 0.004,
+    avg_quality: 8.9,
+    ...overrides,
+  };
+}
+
+/** A metric that moved, with the fields the backend always sends together. */
+export function makeDelta(overrides: Partial<MetricDelta> = {}): MetricDelta {
+  return {
+    base: null,
+    target: null,
+    delta: null,
+    percent_change: null,
+    direction: 'unknown',
+    ...overrides,
+  };
+}
+
+export function makeComparisonEntry(overrides: Partial<ComparisonEntry> = {}): ComparisonEntry {
+  return {
+    key: 'Default::ollama:llama3.2',
+    provider: 'ollama',
+    model: 'llama3.2',
+    variant_name: 'Default',
+    base_status: 'success',
+    target_status: 'success',
+    quality: makeDelta({
+      base: 6,
+      target: 8,
+      delta: 2,
+      percent_change: 33.33,
+      direction: 'better',
+    }),
+    latency_ms: makeDelta({
+      base: 1000,
+      target: 1500,
+      delta: 500,
+      percent_change: 50,
+      direction: 'worse',
+    }),
+    estimated_cost: makeDelta({ base: 0.002, target: 0.002, delta: 0, direction: 'unchanged' }),
+    total_tokens: makeDelta({ base: 100, target: 120, delta: 20, direction: 'worse' }),
+    change: 'mixed',
+    note: null,
+    ...overrides,
+  };
+}
+
+export function makeComparison(overrides: Partial<RunComparison> = {}): RunComparison {
+  return {
+    benchmark_id: 1,
+    base: {
+      id: 10,
+      status: 'completed',
+      started_at: '2026-01-01T00:00:00Z',
+      completed_at: '2026-01-01T00:00:03Z',
+      result_count: 1,
+      evaluation_modes: ['heuristic'],
+    },
+    target: {
+      id: 11,
+      status: 'completed',
+      started_at: '2026-01-02T00:00:00Z',
+      completed_at: '2026-01-02T00:00:03Z',
+      result_count: 1,
+      evaluation_modes: ['heuristic'],
+    },
+    entries: [makeComparisonEntry()],
+    summary: {
+      improved: 0,
+      regressed: 0,
+      unchanged: 0,
+      mixed: 1,
+      added: 0,
+      removed: 0,
+      avg_quality_delta: 2,
+      avg_latency_delta_ms: 500,
+      total_cost_delta: 0,
+      new_failures: 0,
+      fixed_failures: 0,
+    },
+    quality_comparable: true,
+    notes: [],
+    ...overrides,
+  };
 }
 
 export function makeProgress(overrides: Partial<RunProgress> = {}): RunProgress {

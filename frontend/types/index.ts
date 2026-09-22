@@ -403,6 +403,71 @@ export interface EvaluationModeInfo {
   description: string;
 }
 
+/* -------------------------------------------------------------------------- */
+/* Run comparison                                                             */
+/* -------------------------------------------------------------------------- */
+
+/** How a metric moved. `unknown` means a value was missing — never zero. */
+export type MetricDirection = 'better' | 'worse' | 'unchanged' | 'unknown';
+
+export type EntryChange = 'improved' | 'regressed' | 'unchanged' | 'added' | 'removed' | 'mixed';
+
+export interface MetricDelta {
+  base: number | null;
+  target: number | null;
+  delta: number | null;
+  percent_change: number | null;
+  direction: MetricDirection;
+}
+
+export interface ComparisonEntry {
+  key: string;
+  provider: string;
+  model: string;
+  variant_name: string;
+  base_status: ResultStatus | null;
+  target_status: ResultStatus | null;
+  quality: MetricDelta;
+  latency_ms: MetricDelta;
+  estimated_cost: MetricDelta;
+  total_tokens: MetricDelta;
+  change: EntryChange;
+  note: string | null;
+}
+
+export interface ComparisonRunRef {
+  id: number;
+  status: RunStatus;
+  started_at: string;
+  completed_at: string | null;
+  result_count: number;
+  evaluation_modes: string[];
+}
+
+export interface ComparisonSummary {
+  improved: number;
+  regressed: number;
+  unchanged: number;
+  mixed: number;
+  added: number;
+  removed: number;
+  avg_quality_delta: number | null;
+  avg_latency_delta_ms: number | null;
+  total_cost_delta: number | null;
+  new_failures: number;
+  fixed_failures: number;
+}
+
+export interface RunComparison {
+  benchmark_id: number;
+  base: ComparisonRunRef;
+  target: ComparisonRunRef;
+  entries: ComparisonEntry[];
+  summary: ComparisonSummary;
+  quality_comparable: boolean;
+  notes: string[];
+}
+
 export interface HealthResponse {
   status: string;
   version: string;

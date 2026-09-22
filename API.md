@@ -386,6 +386,61 @@ Returns `cancelled: false` with an explanation if the run has already finished.
 
 Cell values are `model_result` ids.
 
+### `GET /api/benchmarks/{id}/compare`
+
+Movement between two runs of the same benchmark, matched on
+provider + model + prompt variant.
+
+| Parameter | Default |
+|---|---|
+| `base_run_id` | the second-newest run |
+| `target_run_id` | the newest run |
+
+```json
+{
+  "benchmark_id": 1,
+  "base": { "id": 10, "status": "completed", "evaluation_modes": ["heuristic"] },
+  "target": { "id": 11, "status": "completed", "evaluation_modes": ["heuristic"] },
+  "entries": [
+    {
+      "key": "Default::ollama:llama3.2",
+      "provider": "ollama",
+      "model": "llama3.2",
+      "variant_name": "Default",
+      "base_status": "success",
+      "target_status": "success",
+      "quality": {
+        "base": 6.0,
+        "target": 8.0,
+        "delta": 2.0,
+        "percent_change": 33.33,
+        "direction": "better"
+      },
+      "latency_ms": { "base": 1000, "target": 1500, "delta": 500, "direction": "worse" },
+      "change": "mixed",
+      "note": null
+    }
+  ],
+  "summary": { "improved": 0, "regressed": 0, "mixed": 1, "new_failures": 0 },
+  "quality_comparable": true,
+  "notes": []
+}
+```
+
+- The ids are normalised to oldest-first, so `delta` always reads as what the
+  re-run changed, whichever order you pass them in.
+- `direction` is per metric — higher quality is better, lower latency, cost and
+  token counts are better. There is no composite score.
+- A missing value gives `"direction": "unknown"` with a `null` delta, and is
+  excluded from the summary averages. It is never counted as zero.
+- Metrics come only from successful results: a failure's latency is time spent
+  failing, not a faster answer.
+- `quality_comparable` is `false` when the two runs were scored in different
+  evaluation modes; quality deltas are then withheld and the reason is in
+  `notes`.
+- `400 invalid_request` when the benchmark has fewer than two runs, the two ids
+  are the same, or a run belongs to another benchmark.
+
 ### Other run endpoints
 
 | Endpoint | Purpose |

@@ -107,6 +107,8 @@ manual. See [Evaluation methodology](#evaluation-methodology).
   model and benchmark.
 - Leaderboard ranked by an explicit metric you pick.
 - History with search, filtering, sorting, pagination, re-run and delete.
+- **Run comparison** — pick two runs of a benchmark and see per-model movement
+  in quality, latency, cost and tokens, with new and fixed failures called out.
 
 ### Export
 JSON, CSV, Markdown and a self-contained HTML report — each carrying the prompt,
@@ -337,6 +339,7 @@ Full reference in [API.md](API.md); an interactive OpenAPI UI is served at
 | `GET` | `/api/runs/{id}/stream` | Server-sent progress events. |
 | `POST` | `/api/runs/{id}/cancel` | Cancel an in-flight run. |
 | `GET` | `/api/runs/{id}/matrix` | Model × variant matrix. |
+| `GET` | `/api/benchmarks/{id}/compare` | What changed between two runs. |
 | `DELETE` | `/api/results/{id}` | Remove one result from a comparison. |
 | `POST` | `/api/evaluate` | Score one result or a whole run. |
 | `GET` | `/api/analytics` | Aggregate metrics with filters. |
@@ -462,7 +465,7 @@ pytest --cov=app --cov-report=term-missing   # with coverage
 ruff check . && ruff format --check .
 mypy app
 
-# Frontend — 74 tests
+# Frontend — 82 tests
 cd frontend
 npm test
 npm run lint
@@ -478,8 +481,8 @@ retry bounds and cancellation.
 
 Frontend coverage includes formatters, the API client's error handling, the
 model picker, comparison table, response cards, progress panel, variant matrix,
-the new-benchmark form's server defaults, and the history, results and models
-pages including their loading, empty and error states.
+the new-benchmark form's server defaults, the run comparison, and the history,
+results and models pages including their loading, empty and error states.
 
 Every check above also runs in CI on each push and pull request
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). CI runs the backend
@@ -498,7 +501,7 @@ says how it was actually checked.
 | Area | Status | How it was verified |
 |---|---|---|
 | Backend API, engine, evaluation, analytics, export | **Verified** | 220 automated tests, plus end-to-end runs against a local HTTP server |
-| Frontend pages, components, formatting | **Verified** | 74 automated tests; pages also opened in a browser |
+| Frontend pages, components, formatting | **Verified** | 82 automated tests; pages also opened in a browser |
 | Concurrency, retries, failure isolation, cancellation | **Verified** | Exercised end-to-end, including timing assertions |
 | Cost and token arithmetic | **Verified** | Unit tests including sub-cent and sub-millisecond cases |
 | Docker build and startup | **Verified** | `docker compose up --build` reached healthy and ran a benchmark with no API keys set |
@@ -579,8 +582,8 @@ machine. Put it behind an authenticating proxy before exposing it to a network.
 - Benchmark templates and shareable read-only result URLs.
 - User-defined evaluation criteria beyond the built-in four.
 - CSV dataset benchmarking (one prompt per row) and batch runs.
-- Regression detection between runs of the same benchmark, and a CI mode that
-  fails a build when quality drops.
+- A CI mode that fails a build when quality drops, building on the run
+  comparison that already exists.
 - Authentication, for multi-user deployments.
 
 ---

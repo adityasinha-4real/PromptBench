@@ -9,7 +9,16 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api';
-import { makeBenchmark, makeProviders, makeResult, makeRun } from './fixtures';
+import {
+  makeBenchmark,
+  makeComparison,
+  makeComparisonEntry,
+  makeDelta,
+  makeProviders,
+  makeResult,
+  makeRun,
+  makeRunSummary,
+} from './fixtures';
 
 // vi.mock factories are hoisted, so the doubles they close over must be too.
 const { push, apiMock } = vi.hoisted(() => ({
@@ -30,6 +39,7 @@ const { push, apiMock } = vi.hoisted(() => ({
     evaluateRun: vi.fn(),
     evaluateResult: vi.fn(),
     evaluationModes: vi.fn(),
+    compareRuns: vi.fn(),
     analytics: vi.fn(),
     leaderboard: vi.fn(),
     leaderboardMetrics: vi.fn(),
@@ -57,6 +67,7 @@ const HistoryPage = (await import('@/app/history/page')).default;
 const BenchmarkPage = (await import('@/app/benchmarks/[id]/page')).default;
 const ModelsPage = (await import('@/app/models/page')).default;
 const NewBenchmarkPage = (await import('@/app/benchmarks/new/page')).default;
+const { RunComparison } = await import('@/components/benchmark/run-comparison');
 
 function emptyPage() {
   return { items: [], total: 0, limit: 20, offset: 0 };
@@ -298,6 +309,109 @@ describe('Benchmark results page', () => {
     );
     render(<BenchmarkPage />);
     expect(await screen.findByRole('alert')).toHaveTextContent('Benchmark 1 was not found.');
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* Run comparison                                                              */
+/* -------------------------------------------------------------------------- */
+
+describe('Run comparison', () => {
+  const twoRuns = [makeRunSummary({ id: 11 }), makeRunSummary({ id: 10 })];
+
+  it('compares the two most recent runs and shows each metric separately', async () => {
+    apiMock.compareRuns.mockResolvedValue(makeComparison());
+    render(<RunComparison benchmarkId={1} runs={twoRuns} />);
+
+    // Newest against the one before it, oldest first.
+    await waitFor(() => expect(apiMock.compareRuns).toHaveBeenCalledWith(1, 10, 11));
+    expect(await screen.findByText('llama3.2')).toBeInTheDocument();
+    expect(screen.getByText('1 mixed')).toBeInTheDocument();
+    expect(screen.getByText('Mixed')).toBeInTheDocument();
+  });
+
+  it('shows direction with an arrow and a sign, not by colour alone', async () => {
+    apiMock.compareRuns.mockResolvedValue(makeComparison());
+    render(<RunComparison benchmarkId={1} runs={twoRuns} />);
+
+    // Quality rose by 2.0, latency worsened by 500ms; both are readable as text.
+    expect(await screen.findByText(/▲ \+2\.0/)).toBeInTheDocument();
+    expect(screen.getByText(/▲ \+500 ms/)).toBeInTheDocument();
+  });
+
+  it('never renders a missing value as zero', async () => {
+    apiMock.compareRuns.mockResolvedValue(
+      makeComparison({
+        entries: [
+          makeComparisonEntry({
+            estimated_cost: makeDelta({ base: null, target: null, direction: 'unknown' }),
+          }),
+        ],
+      })
+    );
+    render(<RunComparison benchmarkId={1} runs={twoRuns} />);
+
+    expect(await screen.findByText('n/a')).toBeInTheDocument();
+    expect(screen.queryByText('$0.00')).not.toBeInTheDocument();
+  });
+
+  it('surfaces the backend note when the evaluation mode changed', async () => {
+    apiMock.compareRuns.mockResolvedValue(
+      makeComparison({
+        quality_comparable: false,
+        notes: ['Quality is not compared: these runs were scored in different evaluation modes.'],
+      })
+    );
+    render(<RunComparison benchmarkId={1} runs={twoRuns} />);
+
+    expect(await screen.findByText(/different evaluation modes/)).toBeInTheDocument();
+  });
+
+  it('refetches when a different run is picked', async () => {
+    const user = userEvent.setup();
+    apiMock.compareRuns.mockResolvedValue(makeComparison());
+    render(
+      <RunComparison
+        benchmarkId={1}
+        runs={[makeRunSummary({ id: 12 }), makeRunSummary({ id: 11 }), makeRunSummary({ id: 10 })]}
+      />
+    );
+    await screen.findByText('llama3.2');
+
+    await user.selectOptions(screen.getByLabelText('Older run'), '10');
+
+    await waitFor(() => expect(apiMock.compareRuns).toHaveBeenCalledWith(1, 10, 12));
+  });
+
+  it('asks for a second run instead of comparing a run with itself', () => {
+    render(<RunComparison benchmarkId={1} runs={[makeRunSummary({ id: 11 })]} />);
+
+    expect(screen.getByText('Only one run so far')).toBeInTheDocument();
+    expect(apiMock.compareRuns).not.toHaveBeenCalled();
+  });
+
+  it('is offered on the results page once a benchmark has two runs', async () => {
+    const user = userEvent.setup();
+    apiMock.getBenchmark.mockResolvedValue(
+      makeBenchmark({ runs: [makeRunSummary({ id: 11 }), makeRunSummary({ id: 10 })] })
+    );
+    apiMock.getRun.mockResolvedValue(makeRun([makeResult({ id: 1, model: 'llama3.2' })]));
+    apiMock.compareRuns.mockResolvedValue(makeComparison());
+
+    render(<BenchmarkPage />);
+    await user.click(await screen.findByRole('tab', { name: /Compare runs/ }));
+
+    expect(await screen.findByText('What changed between runs')).toBeInTheDocument();
+  });
+
+  it('is not offered when there is only one run', async () => {
+    apiMock.getBenchmark.mockResolvedValue(makeBenchmark());
+    apiMock.getRun.mockResolvedValue(makeRun([makeResult({ id: 1, model: 'llama3.2' })]));
+
+    render(<BenchmarkPage />);
+    await screen.findByRole('heading', { name: 'TCP handshake' });
+
+    expect(screen.queryByRole('tab', { name: /Compare runs/ })).not.toBeInTheDocument();
   });
 });
 
