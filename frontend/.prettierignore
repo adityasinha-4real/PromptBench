@@ -2,3 +2,9 @@
 node_modules
 coverage
 package-lock.json
+
+# Rewritten by `next build` in its own formatting, so Prettier and Next would
+# otherwise keep reformatting them in turn. next-env.d.ts is generated outright
+# and says not to edit it; Next owns several fields in tsconfig.json.
+next-env.d.ts
+tsconfig.json
